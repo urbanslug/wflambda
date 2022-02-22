@@ -443,7 +443,11 @@ fn foobar<'a>(
     wavefronts_to_allocate
 }
 
-pub fn wf_next(wavefronts: &mut types::WaveFronts, score: usize, config: &types::Config) {
+pub fn wf_next(
+    wavefronts: &mut types::WaveFronts,
+    score: usize,
+    config: &types::Config
+) {
     if config.verbosity > 1 {
         eprintln!("\t[wflambda::wf_next]");
     }
@@ -930,51 +934,54 @@ mod tests {
     }
 
     mod align {
-        use super::{super::*, *};
+        mod same_sequence {
+            use crate::wf_align;
+            use super::super::test_config;
 
-        #[test]
-        fn same_sequence() {
-            // different sequences
-            let text = "GAGAAT";
-            let query = "GAGAAT";
+            #[test]
+            fn test_short() {
+                // different sequences
+                let text = "GAGAAT";
+                let query = "GAGAAT";
 
-            let tlen = text.len();
-            let qlen = query.len();
+                let tlen = text.len();
+                let qlen = query.len();
 
-            let t: &[u8] = text.as_bytes();
-            let q: &[u8] = query.as_bytes();
+                let t: &[u8] = text.as_bytes();
+                let q: &[u8] = query.as_bytes();
 
-            let mut match_lambda = |v: &mut i32,  h: &mut i32| {
-                if *v < 0 || *h < 0 {
-                    return false;
-                }
+                let mut match_lambda = |v: &mut i32,  h: &mut i32| {
+                    if *v < 0 || *h < 0 {
+                        return false;
+                    }
 
-                let v_idx = *v as usize;
-                let h_idx = *h as usize;
+                    let v_idx = *v as usize;
+                    let h_idx = *h as usize;
 
-                let res = h_idx < tlen && v_idx < qlen && t[h_idx] == q[v_idx];
-                *v += 1;
-                *h += 1;
-                res
-            };
-
-            let mut traceback_lambda =
-                |(q_start, q_stop): (i32, i32), (t_start, t_stop): (i32, i32)| {
-
+                    let res = h_idx < tlen && v_idx < qlen && t[h_idx] == q[v_idx];
+                    *v += 1;
+                    *h += 1;
+                    res
                 };
 
-            let (score, cigar) = wf_align(
-                tlen as u32,
-                qlen as u32,
-                &mut match_lambda,
-                &test_config::CONFIG,
-                &mut traceback_lambda
-            );
+                let mut traceback_lambda =
+                    |(q_start, q_stop): (i32, i32), (t_start, t_stop): (i32, i32)| {
 
-            assert_eq!(score, 0);
+                    };
 
-            eprintln!("\nScore: {}", score);
-            eprintln!();
+                let (score, cigar) = wf_align(
+                    tlen as u32,
+                    qlen as u32,
+                    &mut match_lambda,
+                    &test_config::CONFIG,
+                    &mut traceback_lambda
+                );
+
+                assert_eq!(score, 0);
+
+                eprintln!("\nScore: {}", score);
+                eprintln!();
+            }
         }
 
         mod different_sequence_same_len {
