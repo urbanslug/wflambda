@@ -55,6 +55,9 @@ pub fn end_reached(m_wavefront: Option<&types::WaveFront>, a_k: usize, a_offset:
 }
 
 pub mod backtrace_utils {
+
+    use super::*;
+
     // O(n)
     pub fn print_aln(cigar: &str, t: &[u8], q: &[u8]) {
         let mut query = String::new();
@@ -155,9 +158,25 @@ pub mod backtrace_utils {
         cigar: &mut String,
         num_matches: u32,
         k: i32,
-        traceback_lambda: &G
+        traceback_lambda: &mut G
     ) where
         G: FnMut((i32, i32), (i32, i32)) {
+
+        {
+            // let o = *offset as u64;
+            let query_stop = compute_v(*offset, k);
+            let target_stop = compute_h(*offset, k);
+
+
+            let query_start = query_stop - num_matches as i32;
+            let target_start = target_stop - num_matches as i32;
+
+            let query = (query_start as i32, query_stop as i32);
+            let target = (target_start as i32, target_stop as i32);
+
+            traceback_lambda(query, target);
+        }
+
         // TODO: improve this add M x-times and subtruct offset by num_matches
         (0..num_matches).for_each(|_| {
             // let v = compute_v(*offset, k, central_diagonal);
