@@ -149,7 +149,14 @@ pub mod backtrace_utils {
         }
     }
 
-    pub fn backtrace_matches_check(offset: &mut i32, cigar: &mut String, num_matches: u32, k: i32) {
+    pub fn backtrace_matches_check<G>(
+        offset: &mut i32,
+        cigar: &mut String,
+        num_matches: u32,
+        k: i32,
+        traceback_lambda: &G
+    ) where
+        G: FnMut((i32, i32), (i32, i32)) {
         // TODO: improve this add M x-times and subtruct offset by num_matches
         (0..num_matches).for_each(|_| {
             // let v = compute_v(*offset, k, central_diagonal);

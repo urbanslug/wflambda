@@ -12,11 +12,15 @@ use std::cmp;
 pub mod types;
 mod utils;
 
-pub fn wf_traceback(
+pub fn wf_traceback<G>(
     all_wavefronts: &types::WaveFronts,
     score: usize,
     config: &types::Config,
-) -> String {
+    traceback_lambda: &G,
+) -> String
+where
+    G: FnMut((i32, i32), (i32, i32))
+{
     if config.verbosity > 1 {
         eprintln!("\t[wfa::wf_backtrace]");
     }
@@ -146,6 +150,7 @@ pub fn wf_traceback(
                 &mut cigar,
                 num_matches,
                 k,
+                traceback_lambda,
             );
             offset = max_all.unwrap();
         }
@@ -203,7 +208,9 @@ pub fn wf_traceback(
     if s == 0 {
         // backtrace matches check
         let num_matches = offset as u32;
-        utils::backtrace_utils::backtrace_matches_check(&mut offset, &mut cigar, num_matches, k);
+        utils::backtrace_utils::backtrace_matches_check(&mut offset,
+                                                        &mut cigar, num_matches, k,
+                                                        traceback_lambda);
     } else {
         // add indels
         while v > 0 {
@@ -223,12 +230,12 @@ pub fn wf_traceback(
 
 pub fn wf_extend<F>(
     m_wavefront: &mut types::WaveFront,
-    match_lambda: &F,
+    match_lambda: &mut F,
     config: &types::Config,
     match_positions: &mut Vec<(i32, i32, usize)>,
     score: usize,
 ) where
-    F: Fn(i32, i32) -> bool,
+    F: FnMut(&mut i32, &mut i32) -> bool,
 {
     if config.verbosity > 1 {
         eprintln!("\t[wflambda::wf_extend]");
@@ -249,7 +256,7 @@ pub fn wf_extend<F>(
         // eprintln!("\t\t\tk {}\toffset {}\t({}, {})", k, m_s_k, v, h);
         // vt[v][h] = m_wavefront.vals[k_index] as i32;
 
-        while match_lambda(v, h) {
+        while match_lambda(&mut v, &mut h) {
             if config.verbosity > 254 {
                 eprintln!(
                     "\t[wflambda::wf_extend]\n\
@@ -264,8 +271,6 @@ pub fn wf_extend<F>(
             match_positions.push((v, h, offset as usize));
 
             eprintln!("\t\tk {}\toffset {}", k, offset);
-            v += 1;
-            h += 1;
         }
     }
 }
@@ -783,14 +788,16 @@ pub fn wf_next(wavefronts: &mut types::WaveFronts, score: usize, config: &types:
     };
 }
 
-pub fn wf_align<F>(
+pub fn wf_align<F, G>(
     tlen: u32,
     qlen: u32,
-    match_lambda: &F,
+    match_lambda: &mut F,
     config: &types::Config,
+    traceback_lambda: &G,
 ) -> (usize, String)
 where
-    F: Fn(i32, i32) -> bool,
+    F: FnMut(&mut i32, &mut i32) -> bool,
+    G: FnMut((i32, i32), (i32, i32)),
 {
     if config.verbosity > 1 {
         eprintln!("[wflambda::wf_align]");
@@ -874,49 +881,6 @@ where
         // Check whether we have reached the final point
         // Get the m-wavefront with the current score
         if utils::end_reached(all_wavefronts.get_m_wavefront(score as i32), a_k, a_offset) {
-            /*
-            print offsets
-            ----
-
-            eprintln!("k\tscore\toffset");
-            for i in (0..=score).rev() {
-                let m_wf = all_wavefronts.get_m_wavefront(i as i32);
-
-                match m_wf {
-                    Some (wf) => {
-                        for k in wf.lo..=wf.hi {
-                            let offset = wf.get_offset(k);
-                            eprintln!("{}\t{}\t{:?}", k, i, offset);
-                        }
-                    }
-                    _ => {}
-                };
-                eprintln!();
-
-            }
-             */
-            /*
-            if config.verbosity > 1 {
-                let m_s: &types::WaveFront = all_wavefronts.get_m_wavefront(score).unwrap();
-                let i_s: &types::WaveFront = all_wavefronts.get_m_wavefront(score).unwrap();
-                let d_s: &types::WaveFront = all_wavefronts.get_m_wavefront(score).unwrap();
-
-                eprintln!("\n--------------------------------------\n");
-                eprintln!("\twf\tscore\tk\toffset");
-
-                for (name, wf) in vec![("M", m_s), ("I", i_s), ("D", d_s)].iter() {
-                    for k in wf.lo..=wf.hi {
-                        let k_index = utils::compute_k_index(wf.len(), k as i32, wf.hi);
-                        let offset = wf.offsets[k_index];
-                        eprintln!("\t{}\t{}\t{}\t{}",
-                                  name, score, k, offset);
-                    }
-                    eprintln!();
-                }
-
-                eprintln!("\n--------------------------------------\n");
-            }
-             */
             break;
         }
 
@@ -927,7 +891,7 @@ where
     }
 
     //let cigar = String::new();
-    let cigar = wf_traceback(&all_wavefronts, score, config);
+    let cigar = wf_traceback(&all_wavefronts, score, config, traceback_lambda);
 
     let each_wf = vec![types::WfType::M];
     utils::debug_utils::visualize_all(
@@ -947,7 +911,7 @@ mod tests {
     mod test_config {
         pub static CONFIG: crate::types::Config = crate::types::Config {
             adapt: false,
-            verbosity: 5,
+            verbosity: 0,
             penalties: crate::types::Penalties {
                 mismatch: 4,
                 matches: 0,
@@ -958,6 +922,7 @@ mod tests {
     }
 
     mod core_functions {
+        #[ignore]
         #[test]
         fn test_wf_next() {
             assert!(false);
@@ -965,12 +930,10 @@ mod tests {
     }
 
     mod align {
-
         use super::{super::*, *};
 
-        #[ignore]
         #[test]
-        fn align_same_sequence() {
+        fn same_sequence() {
             // different sequences
             let text = "GAGAAT";
             let query = "GAGAAT";
@@ -981,20 +944,31 @@ mod tests {
             let t: &[u8] = text.as_bytes();
             let q: &[u8] = query.as_bytes();
 
-            let match_lambda = |v: i32, h: i32| {
-                if v < 0 || h < 0 {
+            let mut match_lambda = |v: &mut i32,  h: &mut i32| {
+                if *v < 0 || *h < 0 {
                     return false;
                 }
-                let v = v as usize;
-                let h = h as usize;
-                h < tlen && v < qlen && t[h] == q[v]
+
+                let v_idx = *v as usize;
+                let h_idx = *h as usize;
+
+                let res = h_idx < tlen && v_idx < qlen && t[h_idx] == q[v_idx];
+                *v += 1;
+                *h += 1;
+                res
             };
+
+            let mut traceback_lambda =
+                |(q_start, q_stop): (i32, i32), (t_start, t_stop): (i32, i32)| {
+
+                };
 
             let (score, cigar) = wf_align(
                 tlen as u32,
                 qlen as u32,
-                &match_lambda,
+                &mut match_lambda,
                 &test_config::CONFIG,
+                &mut traceback_lambda
             );
 
             assert_eq!(score, 0);
@@ -1003,9 +977,13 @@ mod tests {
             eprintln!();
         }
 
-        #[test]
-        fn align_different_sequence_same_len() {
-            {
+        mod different_sequence_same_len {
+
+            use crate::wf_align;
+            use super::super::test_config;
+
+            #[test]
+            fn test_short() {
                 // different sequences
                 let text = "GAGATA";
                 let query = "GACACA";
@@ -1016,51 +994,39 @@ mod tests {
                 let t: &[u8] = text.as_bytes();
                 let q: &[u8] = query.as_bytes();
 
-                let match_lambda = |v: i32, h: i32| {
-                    if v < 0 || h < 0 {
+                let mut match_lambda = |v: &mut i32,  h: &mut i32| {
+                    if *v < 0 || *h < 0 {
                         return false;
                     }
-                    let v = v as usize;
-                    let h = h as usize;
-                    h < tlen && v < qlen && t[h] == q[v]
+
+                    let v_idx = *v as usize;
+                    let h_idx = *h as usize;
+
+                    let res = h_idx < tlen && v_idx < qlen && t[h_idx] == q[v_idx];
+                    *v += 1;
+                    *h += 1;
+                    res
                 };
 
-                // let (score, cigar) = wf_align(tlen  as u32, qlen  as u32, &match_lambda, &test_config::CONFIG);
-                // eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
-                // crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
-            }
+                let mut traceback_lambda =
+                    |(q_start, q_stop): (i32, i32), (t_start, t_stop): (i32, i32)| {
 
-            {
-                // different sequences
-                let text  = "TCTATACTGCGCGTTTGGAGAAATAAAATAGTTCTATACTGCGCGTTTGGAGAAATAAAATAGTTCTATACTGCGCGTTTGGAGAAATAAAATAGTTCTATACTGCGCGTTTGGAGAAATAAAATAGT";
-                let query = "TCTTTACTCGCGCGTTGGAGAAATACAATAGTTCTTTACTCGCGCGTTGGAGAAATACAATAGTTCTTTACTCGCGCGTTGGAGAAATACAATAGTTCTTTACTCGCGCGTTGGAGAAATACAATAGT";
-
-                let tlen = text.len();
-                let qlen = query.len();
-
-                let t: &[u8] = text.as_bytes();
-                let q: &[u8] = query.as_bytes();
-
-                let match_lambda = |v: i32, h: i32| {
-                    if v < 0 || h < 0 {
-                        return false;
-                    }
-                    let v = v as usize;
-                    let h = h as usize;
-                    h < tlen && v < qlen && t[h] == q[v]
-                };
+                    };
 
                 let (score, cigar) = wf_align(
                     tlen as u32,
                     qlen as u32,
-                    &match_lambda,
+                    &mut match_lambda,
                     &test_config::CONFIG,
+                    &mut traceback_lambda
                 );
+
                 eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
                 crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
             }
 
-            {
+            #[test]
+            fn test_long() {
                 // different sequences
                 let query = "TCTTTACTCGCGCGTTGGAGAAATACAATAGT";
                 let text = "TCTATACTGCGCGTTTGGAGAAATAAAATAGT";
@@ -1071,19 +1037,84 @@ mod tests {
                 let t: &[u8] = text.as_bytes();
                 let q: &[u8] = query.as_bytes();
 
-                let match_lambda = |v: i32, h: i32| {
-                    if v < 0 || h < 0 {
+
+                let mut match_lambda = |v: &mut i32,  h: &mut i32| {
+                    if *v < 0 || *h < 0 {
                         return false;
                     }
-                    let v = v as usize;
-                    let h = h as usize;
-                    h < tlen && v < qlen && t[h] == q[v]
+
+                    let v_idx = *v as usize;
+                    let h_idx = *h as usize;
+
+                    let res = h_idx < tlen && v_idx < qlen && t[h_idx] == q[v_idx];
+                    *v += 1;
+                    *h += 1;
+                    res
                 };
 
-                // let (score, cigar) = wf_align(tlen as u32, qlen as u32, &match_lambda, &test_config::CONFIG);
-                // eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
-                // crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
+
+                let mut traceback_lambda =
+                    |(q_start, q_stop): (i32, i32), (t_start, t_stop): (i32, i32)| {
+
+                    };
+
+                let (score, cigar) = wf_align(
+                    tlen as u32,
+                    qlen as u32,
+                    &mut match_lambda,
+                    &test_config::CONFIG,
+                    &mut traceback_lambda
+                );
+
+                eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
+                crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
             }
+
+            #[test]
+            fn test_longest() {
+                // different sequences
+                let text  = "TCTATACTGCGCGTTTGGAGAAATAAAATAGTTCTATACTGCGCGTTTGGAGAAATAAAATAGTTCTATACTGCGCGTTTGGAGAAATAAAATAGTTCTATACTGCGCGTTTGGAGAAATAAAATAGT";
+                let query = "TCTTTACTCGCGCGTTGGAGAAATACAATAGTTCTTTACTCGCGCGTTGGAGAAATACAATAGTTCTTTACTCGCGCGTTGGAGAAATACAATAGTTCTTTACTCGCGCGTTGGAGAAATACAATAGT";
+
+                let tlen = text.len();
+                let qlen = query.len();
+
+                let t: &[u8] = text.as_bytes();
+                let q: &[u8] = query.as_bytes();
+
+
+                let mut match_lambda = |v: &mut i32,  h: &mut i32| {
+                    if *v < 0 || *h < 0 {
+                        return false;
+                    }
+
+                    let v_idx = *v as usize;
+                    let h_idx = *h as usize;
+
+                    let res = h_idx < tlen && v_idx < qlen && t[h_idx] == q[v_idx];
+                    *v += 1;
+                    *h += 1;
+                    res
+                };
+
+                let mut traceback_lambda =
+                    |(q_start, q_stop): (i32, i32), (t_start, t_stop): (i32, i32)| {
+
+                    };
+
+                let (score, cigar) = wf_align(
+                    tlen as u32,
+                    qlen as u32,
+                    &mut match_lambda,
+                    &test_config::CONFIG,
+                    &mut traceback_lambda
+                );
+
+                eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
+                crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
+            }
+
         }
+
     }
 }
