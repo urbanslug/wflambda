@@ -16,7 +16,7 @@ pub fn wf_traceback<G>(
     all_wavefronts: &types::WaveFronts,
     score: usize,
     config: &types::Config,
-    traceback_lambda: &G,
+    traceback_lambda: &mut G,
 ) -> String
 where
     G: FnMut((i32, i32), (i32, i32))
@@ -795,9 +795,9 @@ pub fn wf_next(
 pub fn wf_align<F, G>(
     tlen: u32,
     qlen: u32,
-    match_lambda: &mut F,
     config: &types::Config,
-    traceback_lambda: &G,
+    match_lambda: &mut F,
+    traceback_lambda: &mut G,
 ) -> (usize, String)
 where
     F: FnMut(&mut i32, &mut i32) -> bool,
@@ -972,8 +972,8 @@ mod tests {
                 let (score, cigar) = wf_align(
                     tlen as u32,
                     qlen as u32,
-                    &mut match_lambda,
                     &test_config::CONFIG,
+                    &mut match_lambda,
                     &mut traceback_lambda
                 );
 
@@ -1023,8 +1023,8 @@ mod tests {
                 let (score, cigar) = wf_align(
                     tlen as u32,
                     qlen as u32,
-                    &mut match_lambda,
                     &test_config::CONFIG,
+                    &mut match_lambda,
                     &mut traceback_lambda
                 );
 
@@ -1068,8 +1068,8 @@ mod tests {
                 let (score, cigar) = wf_align(
                     tlen as u32,
                     qlen as u32,
-                    &mut match_lambda,
                     &test_config::CONFIG,
+                    &mut match_lambda,
                     &mut traceback_lambda
                 );
 
@@ -1112,8 +1112,8 @@ mod tests {
                 let (score, cigar) = wf_align(
                     tlen as u32,
                     qlen as u32,
-                    &mut match_lambda,
                     &test_config::CONFIG,
+                    &mut match_lambda,
                     &mut traceback_lambda
                 );
 
