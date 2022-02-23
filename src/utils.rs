@@ -292,7 +292,7 @@ pub mod debug_utils {
         let x = ndarray::Dim(dim);
         let mut matrix: Array2<Option<i32>> = Array::from_elem(x, None);
 
-        eprintln!("\t\tk\tscore\toffset\t(v,h)");
+        // eprintln!("\t\tk\tscore\toffset\t(v,h)");
         for s in (0..=score).rev() {
             let wf_specific: &types::WaveFront = match all_wavefronts.get_m_wavefront(s as i32) {
                 Some(m) => m,
@@ -316,7 +316,7 @@ pub mod debug_utils {
 
                     // eprintln!("offset: {}\tk: {}\tscore: {}\t({}, {})", m_s_k,  k, score, v, h);
 
-                    eprintln!("\t\t{}\t{}\t{}\t({},{})", k, s, offset, v, h);
+                    // eprintln!("\t\t{}\t{}\t{}\t({},{})", k, s, offset, v, h);
 
                     if v < 0 || h < 0 || v >= dim.0 as i32 || h >= dim.0 as i32 {
                         continue;
@@ -333,7 +333,7 @@ pub mod debug_utils {
                 }
             }
 
-            eprintln!();
+            // eprintln!();
         }
 
         for (v, h, score) in match_positions {

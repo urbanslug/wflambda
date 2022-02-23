@@ -242,7 +242,7 @@ pub fn wf_extend<F>(
     }
 
     // eprintln!("\t\tlo {} hi {}",  m_wavefront.lo, m_wavefront.hi);
-    eprintln!("\t\tscore {}", score);
+    // eprintln!("\t\tscore {}", score);
 
     for k in m_wavefront.lo..=m_wavefront.hi {
         let k_index: usize = utils::compute_k_index(m_wavefront.len(), k, m_wavefront.hi);
@@ -270,7 +270,7 @@ pub fn wf_extend<F>(
             let offset = m_wavefront.offsets[k_index];
             match_positions.push((v, h, offset as usize));
 
-            eprintln!("\t\tk {}\toffset {}", k, offset);
+            // eprintln!("\t\tk {}\toffset {}", k, offset);
         }
     }
 }
@@ -447,6 +447,7 @@ pub fn wf_next(
     wavefronts: &mut types::WaveFronts,
     score: usize,
     config: &types::Config
+
 ) {
     if config.verbosity > 1 {
         eprintln!("\t[wflambda::wf_next]");
@@ -572,7 +573,7 @@ pub fn wf_next(
                 offset += 1
             }
             out_m_wf.offsets[k_index] = offset;
-            eprintln!("\t\tk {}\tM {}", k, offset);
+            // eprintln!("\t\tk {}\tM {}", k, offset);
         }
     };
 
@@ -720,7 +721,7 @@ pub fn wf_next(
             // let sub = maybe_sub.unwrap_or(-10);
             out_m_wf.offsets[k_index] = sub;
 
-            eprintln!("\t\tk {}\tM {}\tI {}\tD {}", k, sub, ins, del);
+            // eprintln!("\t\tk {}\tM {}\tI {}\tD {}", k, sub, ins, del);
         }
         /*
         for k in max_lo..=min_hi {
@@ -771,19 +772,19 @@ pub fn wf_next(
 
     match wavefronts_to_allocate[..] {
         [types::WfType::M] => {
-            eprintln!("\t\tkernel: 0");
+            // eprintln!("\t\tkernel: 0");
             assign_offsets_m(wavefronts);
         }
         [types::WfType::M, types::WfType::I] => {
-            eprintln!("\t\tkernel: 2");
+            // eprintln!("\t\tkernel: 2");
             assign_offsets_im(wavefronts);
         }
         [types::WfType::M, types::WfType::D] => {
-            eprintln!("\t\tkernel: 1");
+            // eprintln!("\t\tkernel: 1");
             assign_offsets_dm(wavefronts);
         }
         [types::WfType::M, types::WfType::I, types::WfType::D] => {
-            eprintln!("\t\tkernel: 3");
+            // eprintln!("\t\tkernel: 3");
             assign_offsets_idm(wavefronts);
         }
         _ => {
@@ -979,8 +980,8 @@ mod tests {
 
                 assert_eq!(score, 0);
 
-                eprintln!("\nScore: {}", score);
-                eprintln!();
+                // eprintln!("\nScore: {}", score);
+                // eprintln!();
             }
         }
 
@@ -1028,8 +1029,8 @@ mod tests {
                     &mut traceback_lambda
                 );
 
-                eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
-                crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
+                // eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
+                // crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
             }
 
             #[test]
@@ -1073,8 +1074,8 @@ mod tests {
                     &mut traceback_lambda
                 );
 
-                eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
-                crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
+                // eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
+                // crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
             }
 
             #[test]
@@ -1117,8 +1118,8 @@ mod tests {
                     &mut traceback_lambda
                 );
 
-                eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
-                crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
+                // eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
+                // crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
             }
 
         }
