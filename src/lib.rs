@@ -232,10 +232,9 @@ pub fn wf_extend<F>(
     m_wavefront: &mut types::WaveFront,
     match_lambda: &mut F,
     config: &types::Config,
-    match_positions: &mut Vec<(i32, i32, usize)>,
-    score: usize,
+    _score: usize,
 ) where
-    F: FnMut(&mut i32, &mut i32) -> bool,
+    F: FnMut(&mut i32, &mut i32, &mut i32) -> bool,
 {
     if config.verbosity > 1 {
         eprintln!("\t[wflambda::wf_extend]");
@@ -256,21 +255,12 @@ pub fn wf_extend<F>(
         // eprintln!("\t\t\tk {}\toffset {}\t({}, {})", k, m_s_k, v, h);
         // vt[v][h] = m_wavefront.vals[k_index] as i32;
 
-        while match_lambda(&mut v, &mut h) {
-            if config.verbosity > 254 {
-                eprintln!(
-                    "\t[wflambda::wf_extend]\n\
-                           \t\t({} {})",
-                    v, h
-                );
+        while match_lambda(&mut v, &mut h, &mut m_wavefront.offsets[k_index]) {
+
+            if config.verbosity > 6 {
+                eprintln!("\t[wflambda::wf_extend]\n\
+                           \t\t({v} {h})");
             }
-            // increment our offset on the m_wavefront
-            m_wavefront.offsets[k_index] += 1;
-
-            let offset = m_wavefront.offsets[k_index];
-            match_positions.push((v, h, offset as usize));
-
-            // eprintln!("\t\tk {}\toffset {}", k, offset);
         }
     }
 }
@@ -801,7 +791,7 @@ pub fn wf_align<F, G>(
     traceback_lambda: &mut G,
 ) -> (usize, String)
 where
-    F: FnMut(&mut i32, &mut i32) -> bool,
+    F: FnMut(&mut i32, &mut i32, &mut i32) -> bool,
     G: FnMut((i32, i32), (i32, i32)),
 {
     if config.verbosity > 1 {
@@ -851,8 +841,6 @@ where
         0
     );
 
-    let mut match_posititons: Vec<(i32, i32, usize)> = Vec::new();
-
     // Print config
     if config.verbosity > 0 {
         eprintln!(
@@ -878,7 +866,6 @@ where
                 m_wf_mut,
                 match_lambda,
                 &config,
-                &mut match_posititons,
                 score,
             );
         }
@@ -897,16 +884,6 @@ where
 
     //let cigar = String::new();
     let cigar = wf_traceback(&all_wavefronts, score, config, traceback_lambda);
-
-    let each_wf = vec![types::WfType::M];
-    utils::debug_utils::visualize_all(
-        &all_wavefronts,
-        a_offset,
-        &each_wf,
-        &match_posititons,
-        config,
-        score,
-    );
 
     (score, cigar)
 }
@@ -951,7 +928,7 @@ mod tests {
                 let t: &[u8] = text.as_bytes();
                 let q: &[u8] = query.as_bytes();
 
-                let mut match_lambda = |v: &mut i32,  h: &mut i32| {
+                let mut match_lambda = |v: &mut i32,  h: &mut i32, offset: &mut i32| {
                     if *v < 0 || *h < 0 {
                         return false;
                     }
@@ -962,6 +939,11 @@ mod tests {
                     let res = h_idx < tlen && v_idx < qlen && t[h_idx] == q[v_idx];
                     *v += 1;
                     *h += 1;
+
+                    if res {
+                        *offset += 1;
+                    }
+
                     res
                 };
 
@@ -980,8 +962,8 @@ mod tests {
 
                 assert_eq!(score, 0);
 
-                // eprintln!("\nScore: {}", score);
-                // eprintln!();
+                eprintln!("\nScore: {}", score);
+                crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
             }
         }
 
@@ -1002,7 +984,7 @@ mod tests {
                 let t: &[u8] = text.as_bytes();
                 let q: &[u8] = query.as_bytes();
 
-                let mut match_lambda = |v: &mut i32,  h: &mut i32| {
+                let mut match_lambda = |v: &mut i32,  h: &mut i32, offset: &mut i32| {
                     if *v < 0 || *h < 0 {
                         return false;
                     }
@@ -1013,6 +995,11 @@ mod tests {
                     let res = h_idx < tlen && v_idx < qlen && t[h_idx] == q[v_idx];
                     *v += 1;
                     *h += 1;
+
+                    if res {
+                        *offset += 1;
+                    }
+
                     res
                 };
 
@@ -1046,7 +1033,7 @@ mod tests {
                 let q: &[u8] = query.as_bytes();
 
 
-                let mut match_lambda = |v: &mut i32,  h: &mut i32| {
+                let mut match_lambda = |v: &mut i32,  h: &mut i32, offset: &mut i32| {
                     if *v < 0 || *h < 0 {
                         return false;
                     }
@@ -1057,6 +1044,11 @@ mod tests {
                     let res = h_idx < tlen && v_idx < qlen && t[h_idx] == q[v_idx];
                     *v += 1;
                     *h += 1;
+
+                    if res {
+                        *offset += 1;
+                    }
+
                     res
                 };
 
@@ -1074,8 +1066,8 @@ mod tests {
                     &mut traceback_lambda
                 );
 
-                // eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
-                // crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
+                eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
+                crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
             }
 
             #[test]
@@ -1091,7 +1083,7 @@ mod tests {
                 let q: &[u8] = query.as_bytes();
 
 
-                let mut match_lambda = |v: &mut i32,  h: &mut i32| {
+                let mut match_lambda = |v: &mut i32,  h: &mut i32, offset: &mut i32| {
                     if *v < 0 || *h < 0 {
                         return false;
                     }
@@ -1102,6 +1094,11 @@ mod tests {
                     let res = h_idx < tlen && v_idx < qlen && t[h_idx] == q[v_idx];
                     *v += 1;
                     *h += 1;
+
+                    if res {
+                        *offset += 1;
+                    }
+
                     res
                 };
 
@@ -1118,8 +1115,8 @@ mod tests {
                     &mut traceback_lambda
                 );
 
-                // eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
-                // crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
+                eprintln!("Result:\n\tScore: {} Cigar {}", score, cigar);
+                crate::utils::backtrace_utils::print_aln(&cigar[..], t, q);
             }
 
         }
